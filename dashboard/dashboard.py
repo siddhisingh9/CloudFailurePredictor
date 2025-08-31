@@ -4,10 +4,11 @@ import requests
 import redis
 import os
 import json
+import time
 
 # --- Config ---
 API_URL = os.getenv("API_URL", "https://cloudfailurepredictorapp.onrender.com/predict")
-REDIS_URL = os.getenv("REDIS_URL")
+REDIS_URL = os.getenv("REDIS_URL")  # set in Render
 WINDOW_SIZE = 50
 
 # --- Redis ---
@@ -16,77 +17,82 @@ pubsub = r.pubsub()
 pubsub.subscribe("predictions")
 
 st.set_page_config(page_title="Cloud Failure Dashboard", layout="wide")
+st.title("🌩️ Real-Time Cloud Failure Prediction Dashboard")
 st.title("☁️📊 Real-Time Cloud Failure Prediction Dashboard")
 
-# --- Data selection ---
+# --- Step 1: Upload or Demo ---
 choice = st.radio("Choose data source:", ["Upload CSV", "Google Cluster Trace (demo)"])
+
 if choice == "Upload CSV":
-    uploaded_file = st.file_uploader("Upload CSV", type="csv")
+    uploaded_file = st.file_uploader("Upload your CSV file", type="csv")
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
     else:
         st.stop()
 else:
+    # Demo file
     df = pd.read_csv("./data/processed_gct.csv")
 
+# Only keep needed features
 FEATURES = ["cpu_request", "memory_request", "priority", "scheduling_class"]
 df = df[FEATURES]
 
-# --- Session state ---
+# --- Step 2: Streaming controls ---
 if "streaming" not in st.session_state:
     st.session_state.streaming = False
-if "stream_idx" not in st.session_state:
-    st.session_state.stream_idx = 0
-if "history" not in st.session_state:
-    st.session_state.history = []
 
-# --- Control buttons ---
+def start_streaming():
+    st.session_state.streaming = True
+
+def stop_streaming():
+    st.session_state.streaming = False
+
 col1, col2 = st.columns(2)
 with col1:
-    if st.button("▶️ Start Streaming"):
-        st.session_state.streaming = True
+    st.button("▶️ Start Streaming", on_click=start_streaming)
 with col2:
-    if st.button("⏹️ Stop Streaming"):
-        st.session_state.streaming = False
+    st.button("⏹️ Stop Streaming", on_click=stop_streaming)
 
-# --- Containers ---
-metrics_container = st.empty()
-chart_container = st.empty()
-bar_container = st.empty()
+# --- Streaming Loop ---
+if st.session_state.streaming:
+    history = st.session_state.get("history", [])
+    metrics_container = st.empty()
+    chart_container = st.empty()
+    bar_container = st.empty()
 
-# --- Streaming logic without rerun ---
-if st.session_state.streaming and st.session_state.stream_idx < len(df):
-    row = df.iloc[st.session_state.stream_idx]
+    for idx, row in df.iterrows():
+        if not st.session_state.streaming:
+            break  # Stop when user clicks stop
 
-    # Send row to API
-    try:
-        requests.post(API_URL, json=row.to_dict())
-    except:
-        pass
+        # Send row to API (publishes to Redis too)
+        try:
+            requests.post(API_URL, json=row.to_dict())
+        except Exception as e:
+            st.error(f"API request failed: {e}")
+            time.sleep(5)
+            continue
 
-    # Check Redis for prediction
-    message = pubsub.get_message(timeout=0.01)
-    if message and message["type"] == "message":
+        # Wait for pub/sub update
+        message = pubsub.get_message(timeout=5)
+        if not message or message["type"] != "message":
+            continue
+
         try:
             payload = json.loads(message["data"])
-            data = payload.get("data", row.to_dict())
-            prob = payload.get("failure_probability")
-        except:
-            data = row.to_dict()
-            prob = None
-    else:
-        data = row.to_dict()
-        prob = None
+            data = payload["data"]
+            prob = payload["failure_probability"]
+        except Exception as e:
+            st.error(f"Error parsing message: {e}")
+            continue
 
-    # Update history
-    if prob is not None:
-        st.session_state.history.append(prob)
+        # Update history
+        history.append(prob)
+        st.session_state.history = history
 
-    # --- Metrics display ---
-    with metrics_container:
-        st.subheader("Latest Job Metrics")
-        st.write(data)
-        if prob is not None:
+        # --- UI updates ---
+        with metrics_container:
+            st.subheader("Latest Job Metrics")
+            st.write(data)
             if prob > 0.8:
                 st.warning(f"⚠️ High failure risk: {prob:.2f}")
             elif prob < 0.2:
@@ -94,24 +100,15 @@ if st.session_state.streaming and st.session_state.stream_idx < len(df):
             else:
                 st.info(f"Failure probability: {prob:.2f}")
 
-    # --- Line chart ---
-    with chart_container:
-        st.subheader("Historical Failure Probabilities")
-        if st.session_state.history:
-            chart_container.line_chart(st.session_state.history[-WINDOW_SIZE:])
+        with chart_container:
+            st.subheader("Historical Failure Probabilities")
+            st.line_chart(history[-WINDOW_SIZE:])
 
-    # --- Bar chart ---
-    with bar_container:
-        st.subheader("CPU & Memory Usage")
-        bar_container.bar_chart({
-            "CPU Request": [data["cpu_request"]],
-            "Memory Request": [data["memory_request"]]
-        })
+        with bar_container:
+            st.subheader("CPU & Memory Usage")
+            st.bar_chart({
+                "CPU Request": [data["cpu_request"]],
+                "Memory Request": [data["memory_request"]]
+            })
 
-    # Move to next row
-    st.session_state.stream_idx += 1
-
-# --- Auto-refresh every second ---
-if st.session_state.streaming:
-    st.experimental_set_query_params(_stream_tick=st.session_state.stream_idx)  # dummy
-    st_autorefresh = st.experimental_rerun
+        time.sleep(5)
