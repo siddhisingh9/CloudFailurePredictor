@@ -69,7 +69,7 @@ if st.session_state.streaming:
             requests.post(API_URL, json=row.to_dict())
         except Exception as e:
             st.error(f"API request failed: {e}")
-            time.sleep(5)
+            time.sleep(3)
             continue
 
         # Wait for pub/sub update
@@ -111,4 +111,4 @@ if st.session_state.streaming:
                 "Memory Request": [data["memory_request"]]
             })
 
-        time.sleep(5)
+        time.sleep(3)
