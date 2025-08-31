@@ -1,0 +1,41 @@
+services:
+  fastapi:
+    build: ./app
+    container_name: fastapi
+    ports:
+      - "8000:8000"
+    networks:
+      - app-network
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+
+  simulator:
+    build: ./app
+    container_name: simulator
+    command: ["python", "simulate_stream.py"]
+    depends_on:
+      - fastapi
+    networks:
+      - app-network
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+
+  dashboard:
+    build: ./dashboard
+    container_name: dashboard
+    ports:
+      - "8501:8501"
+    depends_on:
+      - fastapi
+      - simulator
+    networks:
+      - app-network
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+
+networks:
+  app-network:
+    driver: bridge

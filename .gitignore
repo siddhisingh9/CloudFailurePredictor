@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.ipynb_checkpoints/
+.env
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Docker / logs
+*.log
+*.pid
+
+# Jupyter
+.ipynb_checkpoints/
+
+data/*
+!data/processed_gct.csv
