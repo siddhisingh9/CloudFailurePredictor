@@ -1,8 +1,16 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
+import redis
+import os
+import json
 
+# --- Load model ---
 model = joblib.load("./models/failure_model.pkl")
+
+# --- Redis connection ---
+REDIS_URL = os.getenv("REDIS_URL")  # set in Render env vars
+r = redis.from_url(REDIS_URL, decode_responses=True)
 
 class Metrics(BaseModel):
     cpu_request: float
@@ -21,4 +29,14 @@ def predict(metrics: Metrics):
         metrics.scheduling_class
     ]]
     prob = model.predict_proba(features)[0][1]
-    return {"failure_probability": float(prob)}
+    prob = float(prob)
+
+    # --- publish to Redis ---
+    payload = {
+        "data": metrics.dict(),
+        "failure_probability": prob
+    }
+    r.publish("predictions", json.dumps(payload))
+
+    # --- still return response for API clients ---
+    return {"failure_probability": prob}

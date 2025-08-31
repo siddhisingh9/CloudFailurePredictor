@@ -1,19 +1,21 @@
-'''
 import pandas as pd
-import requests
+import redis
+import json
 import time
+import os
 
+# Connect to Upstash Redis
+redis_url = os.getenv("REDIS_URL")
+r = redis.from_url(redis_url, decode_responses=True)
+
+# Load CSV
 df = pd.read_csv("./data/processed_gct.csv")
-
 features = ["cpu_request", "memory_request", "priority", "scheduling_class"]
 df = df[features]
 
-url = "https://cloudfailurepredictorapp.onrender.com/predict"
-
+# Publish each row
 for idx, row in df.iterrows():
-    data = row.to_dict()
-    response = requests.post(url, json=data)
-    result = response.json()
-    print(f"Row {idx}: failure probability = {result['failure_probability']:.2f}")
-    time.sleep(1)
-'''
+    event = row.to_dict()
+    r.publish("raw_data", json.dumps(event))
+    print(f"Published row {idx}: {event}")
+    time.sleep(1)  # 1 row per second
