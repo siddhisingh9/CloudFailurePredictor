@@ -6,12 +6,12 @@ import os
 import json
 import time
 
-# --- Config ---
+# Config
 API_URL = os.getenv("API_URL", "https://cloudfailurepredictorapp.onrender.com/predict")
-REDIS_URL = os.getenv("REDIS_URL")  # set in Render
+REDIS_URL = os.getenv("REDIS_URL")
 WINDOW_SIZE = 50
 
-# --- Redis ---
+# Redis
 r = redis.from_url(REDIS_URL, decode_responses=True)
 pubsub = r.pubsub()
 pubsub.subscribe("predictions")
@@ -19,11 +19,10 @@ pubsub.subscribe("predictions")
 st.set_page_config(page_title="Cloud Failure Dashboard", layout="wide")
 st.title("☁️📊 Real-Time Cloud Failure Prediction Dashboard")
 
-# --- Step 1: Upload or Demo ---
+# Upload/demo
 choice = st.radio("Choose data source:", ["Upload CSV", "Google Cluster Trace (demo)"])
-
 if choice == "Upload CSV":
-    uploaded_file = st.file_uploader("Upload your CSV file", type="csv")
+    uploaded_file = st.file_uploader("Upload CSV", type="csv")
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
     else:
@@ -31,11 +30,10 @@ if choice == "Upload CSV":
 else:
     df = pd.read_csv("./data/processed_gct.csv")
 
-# Keep only needed features
 FEATURES = ["cpu_request", "memory_request", "priority", "scheduling_class"]
 df = df[FEATURES]
 
-# --- Step 2: Streaming state ---
+# Streaming state
 if "streaming" not in st.session_state:
     st.session_state.streaming = False
 if "stream_idx" not in st.session_state:
@@ -43,7 +41,7 @@ if "stream_idx" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# --- Buttons just update state ---
+# Buttons
 col1, col2 = st.columns(2)
 with col1:
     if st.button("▶️ Start Streaming"):
@@ -52,30 +50,29 @@ with col2:
     if st.button("⏹️ Stop Streaming"):
         st.session_state.streaming = False
 
-# --- Containers for UI ---
+# Containers
 metrics_container = st.empty()
 chart_container = st.empty()
 bar_container = st.empty()
 
-# --- Streaming loop ---
+# Streaming logic
 if st.session_state.streaming and st.session_state.stream_idx < len(df):
     row = df.iloc[st.session_state.stream_idx]
 
     # Send row to API
     try:
         requests.post(API_URL, json=row.to_dict())
-    except Exception as e:
-        st.error(f"API request failed: {e}")
+    except:
+        pass
 
-    # Wait for Redis pub/sub update (non-blocking)
+    # Check Redis
     message = pubsub.get_message(timeout=1)
     if message and message["type"] == "message":
         try:
             payload = json.loads(message["data"])
             data = payload["data"]
             prob = payload["failure_probability"]
-        except Exception as e:
-            st.error(f"Error parsing message: {e}")
+        except:
             data = row.to_dict()
             prob = None
     else:
@@ -86,7 +83,7 @@ if st.session_state.streaming and st.session_state.stream_idx < len(df):
     if prob is not None:
         st.session_state.history.append(prob)
 
-    # --- UI updates ---
+    # UI
     with metrics_container:
         st.subheader("Latest Job Metrics")
         st.write(data)
@@ -112,6 +109,3 @@ if st.session_state.streaming and st.session_state.stream_idx < len(df):
     # Move to next row
     st.session_state.stream_idx += 1
     time.sleep(3)
-
-    # --- Safe rerun outside button callback ---
-    st.experimental_rerun()
