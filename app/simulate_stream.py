@@ -2,7 +2,7 @@ import pandas as pd
 import requests
 import time
 
-df = pd.read_csv("data/processed_gct.csv")
+df = pd.read_csv(".data/processed_gct.csv")
 
 features = ["cpu_request", "memory_request", "priority", "scheduling_class"]
 df = df[features]

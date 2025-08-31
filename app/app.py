@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
 
-model = joblib.load("models/failure_model.pkl")
+model = joblib.load(".models/failure_model.pkl")
 
 class Metrics(BaseModel):
     cpu_request: float

@@ -5,7 +5,7 @@ import time
 
 # --- Config ---
 API_URL = "https://cloudfailurepredictorapp.onrender.com/predict"
-CSV_FILE = "/app/data/processed_gct.csv"
+CSV_FILE = "./data/processed_gct.csv"
 FEATURES = ["cpu_request", "memory_request", "priority", "scheduling_class"]
 DELAY = 1  # seconds between rows
 WINDOW_SIZE = 50  # last N predictions to display
