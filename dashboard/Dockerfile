@@ -8,7 +8,7 @@ COPY ../data /dashboard/data
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY dashboard/ .
 
 EXPOSE 8501
 
