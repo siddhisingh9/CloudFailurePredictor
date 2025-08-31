@@ -3,7 +3,8 @@ FROM python:3.10-slim
 WORKDIR /app
 
 # Install dependencies
-COPY requirements.txt .
+COPY app/requirements.txt .
+
 COPY ../models /app/models
 COPY ../data /app/data
 

@@ -2,7 +2,7 @@ FROM python:3.10-slim
 
 WORKDIR /dashboard
 
-COPY requirements.txt .
+COPY dashboard/requirements.txt .
 COPY ../models /dashboard/models
 COPY ../data /dashboard/data
 
