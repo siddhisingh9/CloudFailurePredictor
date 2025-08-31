@@ -108,4 +108,4 @@ if st.session_state.streaming and st.session_state.stream_idx < len(df):
 
     # Move to next row
     st.session_state.stream_idx += 1
-    time.sleep(3)
+    time.sleep(1)
