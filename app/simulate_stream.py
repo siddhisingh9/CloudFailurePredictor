@@ -18,4 +18,4 @@ for idx, row in df.iterrows():
     event = row.to_dict()
     r.publish("raw_data", json.dumps(event))
     print(f"Published row {idx}: {event}")
-    time.sleep(1)  # 1 row per second
+    time.sleep(5)  # 1 row per second
