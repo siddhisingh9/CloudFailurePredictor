@@ -18,5 +18,5 @@ venv/
 # Jupyter
 .ipynb_checkpoints/
 
-data/*
-!data/processed_gct.csv
+app/data/*
+!app/data/processed_gct.csv
