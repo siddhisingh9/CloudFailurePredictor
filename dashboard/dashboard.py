@@ -8,7 +8,7 @@ import time
 
 # --- Config ---
 API_URL = os.getenv("API_URL", "https://cloudfailurepredictorapp.onrender.com/predict")
-REDIS_URL = os.getenv("REDIS_URL")  # set in Render
+REDIS_URL = os.getenv("REDIS_URL")
 WINDOW_SIZE = 50
 
 # --- Redis ---
@@ -36,12 +36,18 @@ else:
 FEATURES = ["cpu_request", "memory_request", "priority", "scheduling_class"]
 df = df[FEATURES]
 
-# --- Step 2: Streaming controls ---
+# --- Step 2: Streaming state ---
 if "streaming" not in st.session_state:
     st.session_state.streaming = False
+if "stream_idx" not in st.session_state:
+    st.session_state.stream_idx = 0
+if "history" not in st.session_state:
+    st.session_state.history = []
 
+# Start/Stop functions
 def start_streaming():
     st.session_state.streaming = True
+    st.experimental_rerun()
 
 def stop_streaming():
     st.session_state.streaming = False
@@ -52,46 +58,44 @@ with col1:
 with col2:
     st.button("⏹️ Stop Streaming", on_click=stop_streaming)
 
-# --- Streaming Loop ---
-if st.session_state.streaming:
-    history = st.session_state.get("history", [])
-    metrics_container = st.empty()
-    chart_container = st.empty()
-    bar_container = st.empty()
+# --- Containers for UI ---
+metrics_container = st.empty()
+chart_container = st.empty()
+bar_container = st.empty()
 
-    for idx, row in df.iterrows():
-        if not st.session_state.streaming:
-            break  # Stop when user clicks stop
+# --- Streaming logic ---
+if st.session_state.streaming and st.session_state.stream_idx < len(df):
+    row = df.iloc[st.session_state.stream_idx]
 
-        # Send row to API (publishes to Redis too)
-        try:
-            requests.post(API_URL, json=row.to_dict())
-        except Exception as e:
-            st.error(f"API request failed: {e}")
-            time.sleep(5)
-            continue
+    # Send row to API
+    try:
+        requests.post(API_URL, json=row.to_dict())
+    except Exception as e:
+        st.error(f"API request failed: {e}")
 
-        # Wait for pub/sub update
-        message = pubsub.get_message(timeout=5)
-        if not message or message["type"] != "message":
-            continue
-
+    # Wait for Redis pub/sub update
+    message = pubsub.get_message(timeout=1)
+    if message and message["type"] == "message":
         try:
             payload = json.loads(message["data"])
             data = payload["data"]
             prob = payload["failure_probability"]
         except Exception as e:
             st.error(f"Error parsing message: {e}")
-            continue
+            data = row.to_dict()
+            prob = None
+    else:
+        data = row.to_dict()
+        prob = None
 
-        # Update history
-        history.append(prob)
-        st.session_state.history = history
-
-        # --- UI updates ---
-        with metrics_container:
-            st.subheader("Latest Job Metrics")
-            st.write(data)
+    if prob is not None:
+        st.session_state.history.append(prob)
+    
+    # --- UI updates ---
+    with metrics_container:
+        st.subheader("Latest Job Metrics")
+        st.write(data)
+        if prob is not None:
             if prob > 0.8:
                 st.warning(f"⚠️ High failure risk: {prob:.2f}")
             elif prob < 0.2:
@@ -99,15 +103,17 @@ if st.session_state.streaming:
             else:
                 st.info(f"Failure probability: {prob:.2f}")
 
-        with chart_container:
-            st.subheader("Historical Failure Probabilities")
-            st.line_chart(history[-WINDOW_SIZE:])
+    with chart_container:
+        st.subheader("Historical Failure Probabilities")
+        st.line_chart(st.session_state.history[-WINDOW_SIZE:])
 
-        with bar_container:
-            st.subheader("CPU & Memory Usage")
-            st.bar_chart({
-                "CPU Request": [data["cpu_request"]],
-                "Memory Request": [data["memory_request"]]
-            })
+    with bar_container:
+        st.subheader("CPU & Memory Usage")
+        st.bar_chart({
+            "CPU Request": [data["cpu_request"]],
+            "Memory Request": [data["memory_request"]]
+        })
 
-        time.sleep(5)
+    st.session_state.stream_idx += 1
+    time.sleep(3)
+    st.experimental_rerun()  # rerun script to show next row
