@@ -4,7 +4,7 @@ import requests
 import time
 
 # --- Config ---
-API_URL = "https://<app>.onrender.com/predict"
+API_URL = "https://cloudfailurepredictorapp.onrender.com/predict"
 CSV_FILE = "/app/data/processed_gct.csv"
 FEATURES = ["cpu_request", "memory_request", "priority", "scheduling_class"]
 DELAY = 1  # seconds between rows

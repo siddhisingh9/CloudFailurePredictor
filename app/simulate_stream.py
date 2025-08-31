@@ -7,7 +7,7 @@ df = pd.read_csv("data/processed_gct.csv")
 features = ["cpu_request", "memory_request", "priority", "scheduling_class"]
 df = df[features]
 
-url = "https://<app>.onrender.com/predict"
+url = "https://cloudfailurepredictorapp.onrender.com/predict"
 
 for idx, row in df.iterrows():
     data = row.to_dict()
