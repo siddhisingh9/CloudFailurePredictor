@@ -8,7 +8,7 @@ import time
 
 # --- Config ---
 API_URL = os.getenv("API_URL", "https://cloudfailurepredictorapp.onrender.com/predict")
-REDIS_URL = os.getenv("REDIS_URL")
+REDIS_URL = os.getenv("REDIS_URL")  # set in Render
 WINDOW_SIZE = 50
 
 # --- Redis ---
@@ -29,10 +29,9 @@ if choice == "Upload CSV":
     else:
         st.stop()
 else:
-    # Demo file
     df = pd.read_csv("./data/processed_gct.csv")
 
-# Only keep needed features
+# Keep only needed features
 FEATURES = ["cpu_request", "memory_request", "priority", "scheduling_class"]
 df = df[FEATURES]
 
@@ -44,26 +43,21 @@ if "stream_idx" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# Start/Stop functions
-def start_streaming():
-    st.session_state.streaming = True
-    st.experimental_rerun()
-
-def stop_streaming():
-    st.session_state.streaming = False
-
+# --- Buttons just update state ---
 col1, col2 = st.columns(2)
 with col1:
-    st.button("▶️ Start Streaming", on_click=start_streaming)
+    if st.button("▶️ Start Streaming"):
+        st.session_state.streaming = True
 with col2:
-    st.button("⏹️ Stop Streaming", on_click=stop_streaming)
+    if st.button("⏹️ Stop Streaming"):
+        st.session_state.streaming = False
 
 # --- Containers for UI ---
 metrics_container = st.empty()
 chart_container = st.empty()
 bar_container = st.empty()
 
-# --- Streaming logic ---
+# --- Streaming loop ---
 if st.session_state.streaming and st.session_state.stream_idx < len(df):
     row = df.iloc[st.session_state.stream_idx]
 
@@ -73,7 +67,7 @@ if st.session_state.streaming and st.session_state.stream_idx < len(df):
     except Exception as e:
         st.error(f"API request failed: {e}")
 
-    # Wait for Redis pub/sub update
+    # Wait for Redis pub/sub update (non-blocking)
     message = pubsub.get_message(timeout=1)
     if message and message["type"] == "message":
         try:
@@ -88,9 +82,10 @@ if st.session_state.streaming and st.session_state.stream_idx < len(df):
         data = row.to_dict()
         prob = None
 
+    # Update history
     if prob is not None:
         st.session_state.history.append(prob)
-    
+
     # --- UI updates ---
     with metrics_container:
         st.subheader("Latest Job Metrics")
@@ -114,6 +109,9 @@ if st.session_state.streaming and st.session_state.stream_idx < len(df):
             "Memory Request": [data["memory_request"]]
         })
 
+    # Move to next row
     st.session_state.stream_idx += 1
     time.sleep(3)
-    st.experimental_rerun()  # rerun script to show next row
+
+    # --- Safe rerun outside button callback ---
+    st.experimental_rerun()
