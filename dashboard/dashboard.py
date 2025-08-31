@@ -17,7 +17,7 @@ pubsub = r.pubsub()
 pubsub.subscribe("predictions")
 
 st.set_page_config(page_title="Cloud Failure Dashboard", layout="wide")
-st.title("🌩️ Real-Time Cloud Failure Prediction Dashboard")
+st.title("☁️📊 Real-Time Cloud Failure Prediction Dashboard")
 
 # --- Step 1: Upload or Demo ---
 choice = st.radio("Choose data source:", ["Upload CSV", "Google Cluster Trace (demo)"])
