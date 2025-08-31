@@ -18,5 +18,4 @@ venv/
 # Jupyter
 .ipynb_checkpoints/
 
-app/data/*
-!app/data/processed_gct.csv
+data/borg_traces_data.csv
