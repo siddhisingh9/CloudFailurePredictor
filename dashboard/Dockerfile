@@ -3,8 +3,8 @@ FROM python:3.10-slim
 WORKDIR /dashboard
 
 COPY requirements.txt .
-COPY ./models /app/models
-COPY ./data /app/data
+COPY ../models /dashboard/models
+COPY ../data /dashboard/data
 
 RUN pip install --no-cache-dir -r requirements.txt
 

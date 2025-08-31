@@ -4,8 +4,8 @@ WORKDIR /app
 
 # Install dependencies
 COPY requirements.txt .
-COPY ./models /app/models
-COPY ./data /app/data
+COPY ../models /app/models
+COPY ../data /app/data
 
 RUN pip install --no-cache-dir -r requirements.txt
 
