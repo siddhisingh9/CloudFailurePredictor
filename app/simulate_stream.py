@@ -1,3 +1,4 @@
+'''
 import pandas as pd
 import requests
 import time
@@ -15,3 +16,4 @@ for idx, row in df.iterrows():
     result = response.json()
     print(f"Row {idx}: failure probability = {result['failure_probability']:.2f}")
     time.sleep(1)
+'''
