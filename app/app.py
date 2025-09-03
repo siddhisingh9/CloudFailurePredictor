@@ -9,7 +9,7 @@ import json
 model = joblib.load("./models/failure_model.pkl")
 
 # --- Redis connection ---
-REDIS_URL = os.getenv("REDIS_URL")  # set in Render env vars
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 r = redis.from_url(REDIS_URL, decode_responses=True)
 
 class Metrics(BaseModel):
