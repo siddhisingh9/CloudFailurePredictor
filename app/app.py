@@ -4,10 +4,11 @@ import joblib
 import redis
 import os
 import json
-import streamlit as st
 
+# Load model
 model = joblib.load("./models/failure_model.pkl")
 
+# Redis connection
 REDIS_URL = os.getenv("REDIS_URL")
 r = redis.from_url(REDIS_URL, decode_responses=True)
 
@@ -34,6 +35,8 @@ def predict(metrics: Metrics):
         "data": metrics.dict(),
         "failure_probability": prob
     }
-    r.publish("predictions", json.dumps(payload))
+
+    # Push into Redis list instead of pubsub
+    r.rpush("predictions", json.dumps(payload))
 
     return {"failure_probability": prob}
