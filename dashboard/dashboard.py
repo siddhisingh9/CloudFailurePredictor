@@ -6,8 +6,8 @@ import os
 import json
 
 # --- Config ---
-API_URL = os.getenv("API_URL", "https://cloudfailurepredictorapp.onrender.com/predict")
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+API_URL = os.getenv("API_URL")
+REDIS_URL = os.getenv("REDIS_URL")
 WINDOW_SIZE = 50
 REDIS_LIST = "demo:rows"
 

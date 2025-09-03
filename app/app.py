@@ -4,11 +4,20 @@ import joblib
 import redis
 import os
 import json
+import streamlit as st
 
 model = joblib.load("./models/failure_model.pkl")
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+REDIS_URL = os.getenv("REDIS_URL")
 r = redis.from_url(REDIS_URL, decode_responses=True)
+
+try:
+    r.ping()
+    st.success("✅ Connected to Redis")
+except Exception as e:
+    st.error(f"❌ Redis connection failed: {e}")
+    st.stop()
+
 
 class Metrics(BaseModel):
     cpu_request: float
