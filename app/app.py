@@ -13,11 +13,9 @@ r = redis.from_url(REDIS_URL, decode_responses=True)
 
 try:
     r.ping()
-    st.success("✅ Connected to Redis")
+    print("✅ Connected to Redis")
 except Exception as e:
-    st.error(f"❌ Redis connection failed: {e}")
-    st.stop()
-
+    print(f"❌ Redis connection failed: {e}")
 
 class Metrics(BaseModel):
     cpu_request: float
