@@ -11,12 +11,6 @@ model = joblib.load("./models/failure_model.pkl")
 REDIS_URL = os.getenv("REDIS_URL")
 r = redis.from_url(REDIS_URL, decode_responses=True)
 
-try:
-    r.ping()
-    print("✅ Connected to Redis")
-except Exception as e:
-    print(f"❌ Redis connection failed: {e}")
-
 class Metrics(BaseModel):
     cpu_request: float
     memory_request: float
