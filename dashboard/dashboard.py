@@ -10,7 +10,6 @@ API_URL = os.getenv("API_URL", "https://cloudfailurepredictorapp.onrender.com/pr
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 WINDOW_SIZE = 50
 
-# --- Redis ---
 r = redis.from_url(REDIS_URL, decode_responses=True)
 pubsub = r.pubsub()
 pubsub.subscribe("predictions")
@@ -18,7 +17,6 @@ pubsub.subscribe("predictions")
 st.set_page_config(page_title="Cloud Failure Dashboard", layout="wide")
 st.title("☁️📊 Real-Time Cloud Failure Prediction Dashboard")
 
-# --- Step 1: Upload or Demo ---
 choice = st.radio("Choose data source:", ["Upload CSV", "Google Cluster Trace (demo)"])
 
 if choice == "Upload CSV":
@@ -34,7 +32,6 @@ else:
     FEATURES = ["cpu_request", "memory_request", "priority", "scheduling_class"]
     df = df[FEATURES]
 
-# --- Step 2: Streaming state ---
 if "streaming" not in st.session_state:
     st.session_state.streaming = False
 if "history" not in st.session_state:
@@ -59,22 +56,19 @@ with col1:
 with col2:
     st.button("⏹️ Stop Streaming", on_click=stop_streaming, disabled=not st.session_state.streaming)
 
-# --- Fragment for updates ---
+
 @st.fragment(run_every="3s" if st.session_state.streaming else None)
 def update_stream():
     if not st.session_state.streaming:
         return
 
-    # Pick row depending on mode
     idx = st.session_state.row_index
     if idx >= len(df):
-        # 🔄 Infinite loop: reset index
         st.session_state.row_index = 0
         idx = 0
 
     row = df.iloc[idx]
 
-    # Send row to API → prediction published to Redis
     try:
         requests.post(API_URL, json=row.to_dict())
     except Exception as e:
@@ -83,7 +77,6 @@ def update_stream():
 
     st.session_state.row_index += 1
 
-    # --- Listen for prediction ---
     message = pubsub.get_message(timeout=5)
     if not message or message["type"] != "message":
         return
@@ -96,14 +89,12 @@ def update_stream():
         st.error(f"Error parsing message: {e}")
         return
 
-    # --- Update state ---
     st.session_state.current_data = data
     st.session_state.current_prob = prob
     st.session_state.history.append(prob)
     if len(st.session_state.history) > WINDOW_SIZE:
         st.session_state.history.pop(0)
 
-    # --- UI Updates ---
     st.subheader("Latest Job Metrics")
     st.write(data)
     if prob > 0.8:

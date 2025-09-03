@@ -5,10 +5,8 @@ import redis
 import os
 import json
 
-# --- Load model ---
 model = joblib.load("./models/failure_model.pkl")
 
-# --- Redis connection ---
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 r = redis.from_url(REDIS_URL, decode_responses=True)
 
@@ -31,12 +29,10 @@ def predict(metrics: Metrics):
     prob = model.predict_proba(features)[0][1]
     prob = float(prob)
 
-    # --- publish to Redis ---
     payload = {
         "data": metrics.dict(),
         "failure_probability": prob
     }
     r.publish("predictions", json.dumps(payload))
 
-    # --- still return response for API clients ---
     return {"failure_probability": prob}
