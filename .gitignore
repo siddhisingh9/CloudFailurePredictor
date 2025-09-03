@@ -19,3 +19,5 @@ venv/
 .ipynb_checkpoints/
 
 data/borg_traces_data.csv
+csvtoredis.py
+testredis.py
