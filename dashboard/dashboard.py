@@ -10,7 +10,6 @@ REDIS_URL = os.getenv("REDIS_URL")
 WINDOW_SIZE = 50
 REDIS_LIST = "demo:rows"
 
-# --- Redis ---
 r = redis.from_url(REDIS_URL, decode_responses=True)
 pubsub = r.pubsub()
 pubsub.subscribe("predictions")
@@ -18,7 +17,6 @@ pubsub.subscribe("predictions")
 st.set_page_config(page_title="Cloud Failure Dashboard", layout="wide")
 st.title("☁️📊 Real-Time Cloud Failure Prediction Dashboard")
 
-# --- Step 1: Upload or Demo ---
 choice = st.radio("Choose data source:", ["Upload CSV", "Google Cluster Trace (demo)"])
 
 if choice == "Upload CSV":
@@ -30,10 +28,8 @@ if choice == "Upload CSV":
     else:
         st.stop()
 else:
-    # Demo mode uses Redis list, no local file
     df = None  
 
-# --- Step 2: Streaming state ---
 if "streaming" not in st.session_state:
     st.session_state.streaming = False
 if "history" not in st.session_state:
@@ -58,15 +54,12 @@ with col1:
 with col2:
     st.button("⏹️ Stop Streaming", on_click=stop_streaming, disabled=not st.session_state.streaming)
 
-# --- Fragment for updates ---
 @st.fragment(run_every="3s" if st.session_state.streaming else None)
 def update_stream():
     if not st.session_state.streaming:
         return
 
-    # --- Pick row depending on mode ---
     if choice == "Upload CSV":
-        # Cycle through uploaded file
         idx = st.session_state.row_index
         if idx >= len(df):
             st.session_state.row_index = 0
@@ -88,7 +81,6 @@ def update_stream():
         st.error(f"API request failed: {e}")
         return
 
-    # --- Listen for prediction ---
     message = pubsub.get_message(timeout=5)
     if not message or message["type"] != "message":
         return
@@ -108,7 +100,6 @@ def update_stream():
     if len(st.session_state.history) > WINDOW_SIZE:
         st.session_state.history.pop(0)
 
-    # --- UI Updates ---
     st.subheader("Latest Job Metrics")
     st.write(data)
     if prob > 0.8:
