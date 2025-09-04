@@ -5,10 +5,8 @@ import redis
 import os
 import json
 
-# Load model
 model = joblib.load("./models/failure_model.pkl")
 
-# Redis connection
 REDIS_URL = os.getenv("REDIS_URL")
 r = redis.from_url(REDIS_URL, decode_responses=True)
 
@@ -19,6 +17,10 @@ class Metrics(BaseModel):
     scheduling_class: int
 
 app = FastAPI(title="Cloud Failure Prediction API")
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 @app.post("/predict")
 def predict(metrics: Metrics):
@@ -35,8 +37,9 @@ def predict(metrics: Metrics):
         "data": metrics.dict(),
         "failure_probability": prob
     }
-
-    # Push into Redis list instead of pubsub
-    r.rpush("predictions", json.dumps(payload))
+    try:
+        r.publish("predictions", json.dumps(payload))
+    except Exception as e:
+        print(f"Redis publish failed: {e}")
 
     return {"failure_probability": prob}

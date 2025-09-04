@@ -7,4 +7,3 @@ numpy
 pydantic
 requests
 redis
-streamlit

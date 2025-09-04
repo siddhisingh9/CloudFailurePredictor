@@ -5,7 +5,6 @@ import redis
 import os
 import json
 
-# --- Config ---
 API_URL = os.getenv("API_URL")
 REDIS_URL = os.getenv("REDIS_URL")
 WINDOW_SIZE = 50
@@ -13,6 +12,8 @@ REDIS_LIST = "demo:rows"
 
 # --- Redis ---
 r = redis.from_url(REDIS_URL, decode_responses=True)
+pubsub = r.pubsub()
+pubsub.subscribe("predictions")
 
 st.set_page_config(page_title="Cloud Failure Dashboard", layout="wide")
 st.title("☁️📊 Real-Time Cloud Failure Prediction Dashboard")
@@ -29,9 +30,10 @@ if choice == "Upload CSV":
     else:
         st.stop()
 else:
-    df = None  # Demo mode uses Redis list
+    # Demo mode uses Redis list, no local file
+    df = None  
 
-# --- State ---
+# --- Step 2: Streaming state ---
 if "streaming" not in st.session_state:
     st.session_state.streaming = False
 if "history" not in st.session_state:
@@ -64,13 +66,13 @@ def update_stream():
 
     # --- Pick row depending on mode ---
     if choice == "Upload CSV":
+        # Cycle through uploaded file
         idx = st.session_state.row_index
         if idx >= len(df):
             st.session_state.row_index = 0
             idx = 0
         row = df.iloc[idx]
         st.session_state.row_index += 1
-        payload = row.to_dict()
     else:
         row_data = r.lindex(REDIS_LIST, st.session_state.row_index)
         if row_data is None:
@@ -78,26 +80,25 @@ def update_stream():
             row_data = r.lindex(REDIS_LIST, 0)
         row = json.loads(row_data)
         st.session_state.row_index += 1
-        payload = row
 
     # --- Send row to API ---
     try:
-        requests.post(API_URL, json=payload)
+        requests.post(API_URL, json=row if isinstance(row, dict) else row.to_dict())
     except Exception as e:
         st.error(f"API request failed: {e}")
         return
 
-    # --- Get latest prediction from Redis list ---
-    message = r.lpop("predictions")
-    if not message:
+    # --- Listen for prediction ---
+    message = pubsub.get_message(timeout=5)
+    if not message or message["type"] != "message":
         return
 
     try:
-        result = json.loads(message)
-        data = result["data"]
-        prob = result["failure_probability"]
+        payload = json.loads(message["data"])
+        data = payload["data"]
+        prob = payload["failure_probability"]
     except Exception as e:
-        st.error(f"Error parsing prediction: {e}")
+        st.error(f"Error parsing message: {e}")
         return
 
     # --- Update state ---
