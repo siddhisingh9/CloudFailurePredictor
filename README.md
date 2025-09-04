@@ -38,6 +38,3 @@ This project predicts **task failures** using **Google Cloud Trace data**, helpi
 - **Hosting**: Render  
 
 ---
-
-## 📂 Project Structure  
-
